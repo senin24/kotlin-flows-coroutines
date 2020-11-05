@@ -36,5 +36,6 @@ fun main() = runBlocking<Unit> {
             emit("Making request $request")
             emit(performRequest(request))
         }
+        .buffer(3)
         .collect { response -> println(response) }
 }
