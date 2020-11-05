@@ -1,5 +1,8 @@
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import mu.KotlinLogging
 import kotlin.coroutines.coroutineContext
 
 /** @author Pavel_Senin */
@@ -7,17 +10,15 @@ class FlowGeoCodeAcync {
 
     fun recordsFromXmlAndComparedWithCache(): Flow<Record> = flow {
         (1..100)
-
+            .asFlow()
             .map { i: Int -> Record(i, "name of $i") } //FromXml
             .filter { record -> record.id % 2 == 0 } //ComparedWithCache
-            .forEach { record ->
+            .collect { record ->
                 if (record.id % 4 == 0) {
-                    run {
-                        val (x, y) = geoCoding(record.streetName)
-                        val value = record.copy(x = x, y = y)
-                        log("Emitting GEO record: $value")
-                        emit(value)
-                    }
+                    val (x, y) = geoCoding(record.streetName)
+                    val value = record.copy(x = x, y = y)
+                    log("Emitting GEO record: $value")
+                    emit(value)
                 } else {
                     log("Emitting SIMPLE record: $record")
                     emit(record)
@@ -25,8 +26,8 @@ class FlowGeoCodeAcync {
             }
     }
 
-    fun geoCoding(streetName: String): Pair<Int, Int> {
-        Thread.sleep(100)
+    suspend fun geoCoding(streetName: String): Pair<Int, Int> {
+//        Thread.sleep(100)
         return Pair(10, 10)
     }
 
@@ -54,19 +55,24 @@ class FlowGeoCodeAcync {
 }
 
 suspend fun main() {
+    val requestSemaphore = Semaphore(5)
+
     withContext(coroutineContext) {
         FlowGeoCodeAcync().recordsFromXmlAndComparedWithCache()
 //            .buffer(10)
 //            .onEach { delay(1000) }
             .collect() { record ->
-                async(coroutineContext, CoroutineStart.ATOMIC) {
-                    log("Start consume record: $record")
-                    delay(1000)
-                    log("Finish consume record: $record")
-                }.await()
-
+                launch {
+                    requestSemaphore.withPermit {
+                        log("Start consume record: $record")
+                        delay(1000)
+                        log("Finish consume record: $record")
+                    }
+                }
             }
     }
 }
+
+//private val log = KotlinLogging.logger {}
 
 suspend fun log(msg: String) = println("[${Thread.currentThread().name}] $msg")

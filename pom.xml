@@ -107,6 +107,11 @@
             <artifactId>kotlinx-coroutines-core</artifactId>
             <version>${kotlin.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.microutils</groupId>
+            <artifactId>kotlin-logging</artifactId>
+            <version>1.8.0.1</version>
+        </dependency>
     </dependencies>
 
 </project>
